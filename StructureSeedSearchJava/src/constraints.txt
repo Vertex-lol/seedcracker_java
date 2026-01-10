@@ -1,0 +1,6 @@
+-22, -42, COUNTERCLOCKWISE_90, sideways_fronthalf, Ocean
+
+112, 60, CLOCKWISE_90, rightsideup_full_degraded, Beached
+
+52, 17, CLOCKWISE_180, portal_3, yes, 1
+
