@@ -55,13 +55,13 @@ All constraints satisfied ✅
 ```
 Example input:
 ```
--54, -14, COUNTERCLOCKWISE_90, sideways_fronthalf, Ocean
+-54, -14, COUNTERCLOCKWISE_90, sideways_fronthalf, Ocean #shipwreck
 
-112, 89, CLOCKWISE_180, rightsideup_full_degraded, Beached
+112, 89, CLOCKWISE_180, rightsideup_full_degraded, Beached #shipwreck
 
-55, -9, CLOCKWISE_180, taiga_meeting_point_1, 3, no
+55, -9, CLOCKWISE_180, taiga_meeting_point_1, 3, no #village
 
-52, 17, CLOCKWISE_180, portal_1, yes, 1
+52, 17, CLOCKWISE_180, portal_1, yes, 1 #portal
 
 ```
 
@@ -69,16 +69,19 @@ Example input:
 1) What are the constraints for villages?
 ```
 <chunkX>, <chunkZ>, <rotation>, <variant of origin>, <biome>  (1 = plains, 2 = snowy, 3 = taiga, 4 = savanna, 5 = desert), <abandoned> (yes/no)
+#refer to above for example
 ```
 
 3) What are the constraints for ruined portals?
 ```
 <chunkX>, <chunkZ>, <rotation>, <variant>, <mirrored> (yes/no), <biome> (1 = most biomes, 2 = desert, nether (after 1.18), swamp (not mangrove though), ocean, 3 = jungle (any kind of portal that has vines growing on it"
+#refer to above for example
 ```
 
 5) What are the constraints for shipwrecks?
 ```
 <chunkX>, <chunkZ>, <rotation>, <variant>, <condition> (beached/ocean)
+#refer to above for example
 ```
 
 **IMPORTANT**
