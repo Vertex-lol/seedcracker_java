@@ -59,13 +59,19 @@ Example input:
 
 **FAQs**
 1) What are the constraints for villages?
-```<chunkX>, <chunkZ>, <rotation>, <variant of origin>, <biome>  (1 = plains, 2 = snowy, 3 = taiga, 4 = savanna, 5 = desert), <abandoned> (yes/no)```
+```
+<chunkX>, <chunkZ>, <rotation>, <variant of origin>, <biome>  (1 = plains, 2 = snowy, 3 = taiga, 4 = savanna, 5 = desert), <abandoned> (yes/no)
+```
 
-2) What are the constraints for ruined portals?
-```<chunkX>, <chunkZ>, <rotation>, <variant>, <mirrored> (yes/no), <biome> (1 = most biomes, 2 = desert, nether (after 1.18), swamp (not mangrove though), ocean, 3 = jungle (any kind of portal that has vines growing on it"```
+3) What are the constraints for ruined portals?
+```
+<chunkX>, <chunkZ>, <rotation>, <variant>, <mirrored> (yes/no), <biome> (1 = most biomes, 2 = desert, nether (after 1.18), swamp (not mangrove though), ocean, 3 = jungle (any kind of portal that has vines growing on it"
+```
 
-3) What are the constraints for shipwrecks?
-```<chunkX>, <chunkZ>, <rotation>, <variant>, <condition> (beached/ocean)```
+5) What are the constraints for shipwrecks?
+```
+<chunkX>, <chunkZ>, <rotation>, <variant>, <condition> (beached/ocean)
+```
 
 **IMPORTANT**
 If you have the pillarseed, add it as the last line. If not just leave it blank, its optional.
