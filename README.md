@@ -1,5 +1,11 @@
 # seedcracker_java
-**RUN:**
+```
+**THIS CRACKS STRUCTURE SEEDS NOT THE WORLD SEED**
+**THIS CRACKS STRUCTURE SEEDS NOT THE WORLD SEED**
+**THIS CRACKS STRUCTURE SEEDS NOT THE WORLD SEED**
+```
+
+**TO RUN:**
 ```
 java StructureSeedCracker constraints.txt
 ```
@@ -21,7 +27,7 @@ Using Portal at [52,17] as anchor.
 Found 3 valid seed(s). Writing to found_seeds.txt...
 Done.
 ```
-**DEBUG:**
+**TO DEBUG/CHECK:**
 ```
 java StructureSeedCracker <seed>
 ```
