@@ -7,6 +7,7 @@
 
 **TO RUN:**
 ```
+change directory to src
 java StructureSeedCracker constraints.txt
 ```
 Example run output:
@@ -29,6 +30,7 @@ Done.
 ```
 **TO DEBUG/CHECK:**
 ```
+change directory to src
 java StructureSeedCracker <seed>
 ```
 Expample debug output:
