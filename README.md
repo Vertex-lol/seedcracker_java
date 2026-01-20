@@ -63,6 +63,8 @@ Example input:
 
 52, 17, CLOCKWISE_180, portal_1, yes, 1 #portal
 
+PORTALCHEST: 1338 947 1 #portal chest (world coords, biome category)
+
 ```
 
 **FAQs**
@@ -76,6 +78,12 @@ Example input:
 ```
 <chunkX>, <chunkZ>, <rotation>, <variant>, <mirrored> (yes/no), <biome> (1 = most biomes, 2 = desert, nether (after 1.18), swamp (not mangrove though), ocean, 3 = jungle (any kind of portal that has vines growing on it"
 #refer to above for example
+```
+
+4) What are the constraints for portal chest locations?
+```
+PORTALCHEST: <worldX> <worldZ> <biome> (1 = most biomes, 2 = desert, nether (after 1.18), swamp (not mangrove though), ocean, 3 = jungle)
+#world coords are the block coords from F3, not chunk coords
 ```
 
 5) What are the constraints for shipwrecks?
