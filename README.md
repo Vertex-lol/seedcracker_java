@@ -65,6 +65,21 @@ Example input:
 
 ```
 
+**Portal chest constraints**
+```
+PORTALCHEST: <blockX>, <blockZ>, <biome_category>
+# Example:
+PORTALCHEST: 842, -119, 1
+```
+Portal chest constraints require `portal_chest_offsets.txt` (see `src/portal_chest_offsets.txt`) to map
+each portal template's bounding box size and chest offset. The cracker expands those entries to all
+rotations/mirrors (mirror applied before rotation).
+
+You can also list possible portal variants (type/rotation/mirror and origin chunk) for a chest block:
+```
+java StructureSeedCracker portalchest <blockX> <blockZ>
+```
+
 **FAQs**
 1) What are the constraints for villages?
 ```
