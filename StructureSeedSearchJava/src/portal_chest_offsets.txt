@@ -1,0 +1,26 @@
+# Portal chest offsets for ruined portal templates.
+# Format:
+#   portal_type, size_x, size_z, chest_offset_x, chest_offset_z
+#
+# Notes:
+# - portal_type matches the portal template name (portal_1..portal_10, giant_portal_1..3).
+# - offsets are block coords from the structure start block (chunk start) to the chest block.
+# - size_x/size_z come from the structure bounding box.
+# - the code expands these to all rotations and mirrors (mirror applied before rotation).
+#
+# portal_1..portal_10
+portal_1, 6, 6, 2, 0
+portal_2, 9, 9, 8, 6
+portal_3, 8, 9, 3, 6
+portal_4, 8, 9, 3, 2
+portal_5, 10, 7, 4, 2
+portal_6, 5, 7, 1, 4
+portal_7, 9, 9, 0, 2
+portal_8, 14, 9, 4, 2
+portal_9, 10, 9, 4, 0
+portal_10, 12, 10, 2, 7
+
+# giant_portal_1..giant_portal_3
+giant_portal_1, 11, 16, 4, 3
+giant_portal_2, 11, 16, 9, 9
+giant_portal_3, 16, 16, 9, 3

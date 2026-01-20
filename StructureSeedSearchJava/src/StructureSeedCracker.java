@@ -116,7 +116,7 @@ public class StructureSeedCracker {
     }
 
     enum ConstraintType {
-        SHIPWRECK, RUINED_PORTAL, VILLAGE
+        SHIPWRECK, RUINED_PORTAL, VILLAGE, PORTAL_CHEST
     }
 
     static class RuinedPortalConstraintData {
@@ -139,6 +139,12 @@ public class StructureSeedCracker {
         boolean isAbandoned;
     }
 
+    static class PortalChestConstraintData {
+        int blockX;
+        int blockZ;
+        BiomeCategory category;
+    }
+
     static class Constraint {
         ConstraintType type;
         int chunkX;
@@ -146,7 +152,27 @@ public class StructureSeedCracker {
         ShipwreckConstraintData shipwreck = new ShipwreckConstraintData();
         RuinedPortalConstraintData portal = new RuinedPortalConstraintData();
         VillageConstraintData village = new VillageConstraintData();
+        PortalChestConstraintData portalChest = new PortalChestConstraintData();
     }
+
+    static class PortalChestOffset {
+        PortalType type;
+        BlockRotation rotation;
+        BlockMirror mirror;
+        int offsetX;
+        int offsetZ;
+
+        PortalChestOffset(PortalType type, BlockRotation rotation, BlockMirror mirror, int offsetX, int offsetZ) {
+            this.type = type;
+            this.rotation = rotation;
+            this.mirror = mirror;
+            this.offsetX = offsetX;
+            this.offsetZ = offsetZ;
+        }
+    }
+
+    private static final String PORTAL_CHEST_OFFSETS_FILE = "portal_chest_offsets.txt";
+    private static final Map<PortalType, List<PortalChestOffset>> PORTAL_CHEST_OFFSETS = new EnumMap<>(PortalType.class);
 
     // =======================================================================
     // 3. RNG / LCG helper
@@ -433,6 +459,36 @@ public class StructureSeedCracker {
         return true;
     }
 
+    private static boolean checkPortalChestFull(long structureSeed, Constraint c, StandaloneChunkRand rand) {
+        if (PORTAL_CHEST_OFFSETS.isEmpty()) {
+            return false;
+        }
+
+        for (Map.Entry<PortalType, List<PortalChestOffset>> entry : PORTAL_CHEST_OFFSETS.entrySet()) {
+            PortalType type = entry.getKey();
+            for (PortalChestOffset offset : entry.getValue()) {
+                int startBlockX = c.portalChest.blockX - offset.offsetX;
+                int startBlockZ = c.portalChest.blockZ - offset.offsetZ;
+                int chunkX = floorDiv(startBlockX, 16);
+                int chunkZ = floorDiv(startBlockZ, 16);
+
+                Constraint portalConstraint = new Constraint();
+                portalConstraint.type = ConstraintType.RUINED_PORTAL;
+                portalConstraint.chunkX = chunkX;
+                portalConstraint.chunkZ = chunkZ;
+                portalConstraint.portal.category = c.portalChest.category;
+                portalConstraint.portal.type = type;
+                portalConstraint.portal.rotation = offset.rotation;
+                portalConstraint.portal.mirror = offset.mirror;
+
+                if (checkPortalFull(structureSeed, portalConstraint, rand)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     // =======================================================================
     // 7. Shipwreck 20-bit fast filter (must use 32-bit state)
     // =======================================================================
@@ -469,6 +525,24 @@ public class StructureSeedCracker {
         default void initializeDeviceConstants() {}
         default boolean hasFastFilter() { return false; }
         default boolean hasReversingKernel() { return false; }
+    }
+
+    private static Map<String, PortalType> createPortalTypeMap() {
+        Map<String, PortalType> nameToType = new HashMap<>();
+        nameToType.put("portal_1", PortalType.PORTAL_1);
+        nameToType.put("portal_2", PortalType.PORTAL_2);
+        nameToType.put("portal_3", PortalType.PORTAL_3);
+        nameToType.put("portal_4", PortalType.PORTAL_4);
+        nameToType.put("portal_5", PortalType.PORTAL_5);
+        nameToType.put("portal_6", PortalType.PORTAL_6);
+        nameToType.put("portal_7", PortalType.PORTAL_7);
+        nameToType.put("portal_8", PortalType.PORTAL_8);
+        nameToType.put("portal_9", PortalType.PORTAL_9);
+        nameToType.put("portal_10", PortalType.PORTAL_10);
+        nameToType.put("giant_portal_1", PortalType.GIANT_PORTAL_1);
+        nameToType.put("giant_portal_2", PortalType.GIANT_PORTAL_2);
+        nameToType.put("giant_portal_3", PortalType.GIANT_PORTAL_3);
+        return nameToType;
     }
 
     static class VillageStructure implements IStructure {
@@ -667,20 +741,7 @@ public class StructureSeedCracker {
         private final Map<String, PortalType> nameToType = new HashMap<>();
 
         RuinedPortalStructure() {
-            nameToType.put("portal_1", PortalType.PORTAL_1);
-            nameToType.put("portal_2", PortalType.PORTAL_2);
-            nameToType.put("portal_3", PortalType.PORTAL_3);
-            nameToType.put("portal_4", PortalType.PORTAL_4);
-            nameToType.put("portal_5", PortalType.PORTAL_5);
-            nameToType.put("portal_6", PortalType.PORTAL_6);
-            nameToType.put("portal_7", PortalType.PORTAL_7);
-            nameToType.put("portal_8", PortalType.PORTAL_8);
-            nameToType.put("portal_9", PortalType.PORTAL_9);
-            nameToType.put("portal_10", PortalType.PORTAL_10);
-
-            nameToType.put("giant_portal_1", PortalType.GIANT_PORTAL_1);
-            nameToType.put("giant_portal_2", PortalType.GIANT_PORTAL_2);
-            nameToType.put("giant_portal_3", PortalType.GIANT_PORTAL_3);
+            nameToType.putAll(createPortalTypeMap());
         }
 
         @Override
@@ -727,6 +788,7 @@ public class StructureSeedCracker {
     static class StructureRegistry {
         private final List<IStructure> structures = new ArrayList<>();
         private final Map<String, BlockRotation> nameToRot = new HashMap<>();
+        private final Map<String, BlockMirror> nameToMirror = new HashMap<>();
 
         StructureRegistry() {
             structures.add(new ShipwreckStructure());
@@ -737,6 +799,9 @@ public class StructureSeedCracker {
             nameToRot.put("CLOCKWISE_90", BlockRotation.CLOCKWISE_90);
             nameToRot.put("CLOCKWISE_180", BlockRotation.CLOCKWISE_180);
             nameToRot.put("COUNTERCLOCKWISE_90", BlockRotation.COUNTERCLOCKWISE_90);
+
+            nameToMirror.put("NONE", BlockMirror.NONE);
+            nameToMirror.put("FRONT_BACK", BlockMirror.FRONT_BACK);
         }
 
         void initializeAllDeviceConstants() {
@@ -746,6 +811,11 @@ public class StructureSeedCracker {
         }
 
         boolean parseLine(String line, Constraint out) {
+            String trimmed = line.trim();
+            if (trimmed.toUpperCase().startsWith("PORTALCHEST")) {
+                return parsePortalChestLine(trimmed, out);
+            }
+
             String[] tokens = line.split(",");
             List<String> parts = new ArrayList<>();
             for (String t : tokens) parts.add(t.trim());
@@ -779,11 +849,137 @@ public class StructureSeedCracker {
             }
             return false;
         }
+
+        private boolean parsePortalChestLine(String line, Constraint out) {
+            String rest = line.substring("PORTALCHEST".length()).trim();
+            if (rest.startsWith(":")) {
+                rest = rest.substring(1).trim();
+            } else if (rest.startsWith(",")) {
+                rest = rest.substring(1).trim();
+            }
+
+            String[] tokens = rest.split(",");
+            if (tokens.length != 3) return false;
+
+            try {
+                int blockX = Integer.parseInt(tokens[0].trim());
+                int blockZ = Integer.parseInt(tokens[1].trim());
+                int cat = Integer.parseInt(tokens[2].trim());
+
+                Constraint c = new Constraint();
+                c.type = ConstraintType.PORTAL_CHEST;
+                c.portalChest.blockX = blockX;
+                c.portalChest.blockZ = blockZ;
+                c.portalChest.category = BiomeCategory.fromInt(cat);
+
+                out.type = c.type;
+                out.portalChest = c.portalChest;
+                return true;
+            } catch (NumberFormatException e) {
+                return false;
+            }
+        }
+
+        BlockRotation getRotation(String value) {
+            return nameToRot.get(value);
+        }
+
+        BlockMirror getMirror(String value) {
+            return nameToMirror.get(value);
+        }
     }
 
     // =======================================================================
     // 9. Progress bar helper
     // =======================================================================
+
+    private static void loadPortalChestOffsets(StructureRegistry registry) {
+        File offsetsFile = new File(PORTAL_CHEST_OFFSETS_FILE);
+        if (!offsetsFile.exists()) {
+            return;
+        }
+
+        Map<String, PortalType> nameToType = createPortalTypeMap();
+
+        try (BufferedReader br = new BufferedReader(new FileReader(offsetsFile))) {
+            String raw;
+            int lineNum = 0;
+            while ((raw = br.readLine()) != null) {
+                lineNum++;
+                String line = raw.trim();
+                if (line.isEmpty() || line.startsWith("#")) continue;
+
+                String[] tokens = line.split(",");
+                if (tokens.length != 5) {
+                    System.err.println("Warning: Invalid portal chest offset line " +
+                            lineNum + " in " + PORTAL_CHEST_OFFSETS_FILE + ": \"" + raw + "\"");
+                    continue;
+                }
+
+                String typeName = tokens[0].trim().toLowerCase();
+                PortalType type = nameToType.get(typeName);
+                if (type == null) {
+                    System.err.println("Warning: Unknown portal type on line " + lineNum +
+                            " in " + PORTAL_CHEST_OFFSETS_FILE + ": \"" + tokens[0].trim() + "\"");
+                    continue;
+                }
+
+                int sizeX;
+                int sizeZ;
+                int chestX;
+                int chestZ;
+                try {
+                    sizeX = Integer.parseInt(tokens[1].trim());
+                    sizeZ = Integer.parseInt(tokens[2].trim());
+                    chestX = Integer.parseInt(tokens[3].trim());
+                    chestZ = Integer.parseInt(tokens[4].trim());
+                } catch (NumberFormatException e) {
+                    System.err.println("Warning: Invalid offset on line " + lineNum +
+                            " in " + PORTAL_CHEST_OFFSETS_FILE + ": \"" + raw + "\"");
+                    continue;
+                }
+
+                if (sizeX <= 0 || sizeZ <= 0) {
+                    System.err.println("Warning: Invalid size on line " + lineNum +
+                            " in " + PORTAL_CHEST_OFFSETS_FILE + ": \"" + raw + "\"");
+                    continue;
+                }
+                if (chestX < 0 || chestZ < 0 || chestX >= sizeX || chestZ >= sizeZ) {
+                    System.err.println("Warning: Chest offset outside bounds on line " + lineNum +
+                            " in " + PORTAL_CHEST_OFFSETS_FILE + ": \"" + raw + "\"");
+                    continue;
+                }
+
+                for (BlockMirror mirror : BlockMirror.values()) {
+                    int mirroredX = (mirror == BlockMirror.FRONT_BACK) ? (sizeX - 1 - chestX) : chestX;
+                    int mirroredZ = chestZ;
+                    for (BlockRotation rotation : BlockRotation.values()) {
+                        int[] rotated = rotateOffset(mirroredX, mirroredZ, sizeX, sizeZ, rotation);
+                        PortalChestOffset offset = new PortalChestOffset(type, rotation, mirror,
+                                rotated[0], rotated[1]);
+                        PORTAL_CHEST_OFFSETS.computeIfAbsent(type, k -> new ArrayList<>()).add(offset);
+                    }
+                }
+            }
+        } catch (IOException e) {
+            System.err.println("Warning: Failed to read " + PORTAL_CHEST_OFFSETS_FILE + ": " + e.getMessage());
+        }
+    }
+
+    private static int[] rotateOffset(int x, int z, int sizeX, int sizeZ, BlockRotation rotation) {
+        switch (rotation) {
+            case NONE:
+                return new int[]{x, z};
+            case CLOCKWISE_90:
+                return new int[]{sizeZ - 1 - z, x};
+            case CLOCKWISE_180:
+                return new int[]{sizeX - 1 - x, sizeZ - 1 - z};
+            case COUNTERCLOCKWISE_90:
+                return new int[]{z, sizeX - 1 - x};
+            default:
+                return new int[]{x, z};
+        }
+    }
 
     private static long lastPrintTimeNs = 0;
 
@@ -880,6 +1076,8 @@ public class StructureSeedCracker {
                             ok = checkPortalFull(candidateSeed, c, rand);
                         } else if (c.type == ConstraintType.SHIPWRECK) {
                             ok = checkShipwreckFull(candidateSeed, c, rand);
+                        } else if (c.type == ConstraintType.PORTAL_CHEST) {
+                            ok = checkPortalChestFull(candidateSeed, c, rand);
                         } else {
                             ok = checkVillageFull(candidateSeed, c, rand);
                         }
@@ -967,6 +1165,8 @@ public class StructureSeedCracker {
                     ok = checkPortalFull(seed, c, rand);
                 } else if (c.type == ConstraintType.SHIPWRECK) {
                     ok = checkShipwreckFull(seed, c, rand);
+                } else if (c.type == ConstraintType.PORTAL_CHEST) {
+                    ok = checkPortalChestFull(seed, c, rand);
                 } else {
                     ok = checkVillageFull(seed, c, rand);
                 }
@@ -1137,6 +1337,8 @@ public class StructureSeedCracker {
                         ok = checkPortalFull(candidateSeed, c, rand);
                     } else if (c.type == ConstraintType.SHIPWRECK) {
                         ok = checkShipwreckFull(candidateSeed, c, rand);
+                    } else if (c.type == ConstraintType.PORTAL_CHEST) {
+                        ok = checkPortalChestFull(candidateSeed, c, rand);
                     } else {
                         ok = checkVillageFull(candidateSeed, c, rand);
                     }
@@ -1198,10 +1400,12 @@ public class StructureSeedCracker {
         System.err.println("Usage:");
         System.err.println("  Search mode: java StructureSeedCracker <constraints_file.txt>");
         System.err.println("  Debug mode : java StructureSeedCracker <structure_seed>");
+        System.err.println("  PortalChest candidates: java StructureSeedCracker portalchest <blockX> <blockZ>");
         System.err.println();
         System.err.println("Constraints file format (one per line, '#' for comments):");
         System.err.println("  Shipwreck: ChunkX, ChunkZ, ROTATION, type_name, Ocean|Beached");
         System.err.println("  Portal   : ChunkX, ChunkZ, ROTATION, portal_type, yes|no, biome_category(1-3)");
+        System.err.println("  PortalChest: PORTALCHEST: BlockX, BlockZ, biome_category(1-3)");
         System.err.println("  Village  : ChunkX, ChunkZ, ROTATION, piece_name, biome_id, [yes|no]");
         System.err.println("             biome_id: 1=Plains, 2=Snowy, 3=Taiga, 4=Savanna, 5=Desert");
         System.err.println("Pillarseed Mode:");
@@ -1253,6 +1457,13 @@ public class StructureSeedCracker {
             }
         }
 
+        if (constraints.stream().anyMatch(c -> c.type == ConstraintType.PORTAL_CHEST)
+                && PORTAL_CHEST_OFFSETS.isEmpty()) {
+            System.err.println("Portal chest constraints require " + PORTAL_CHEST_OFFSETS_FILE +
+                    " with portal chest offsets.");
+            return new LoadResult(Collections.emptyList(), -1);
+        }
+
         if (constraints.isEmpty() && pillarSeed == -1) {
             System.err.println("No valid constraints or pillar seed found.");
         }
@@ -1274,12 +1485,19 @@ public class StructureSeedCracker {
         for (Constraint c : constraints) {
             idx++;
             boolean ok;
-            System.out.println("Constraint " + idx + " (" + c.type +
-                    " @ [" + c.chunkX + "," + c.chunkZ + "]):");
+            if (c.type == ConstraintType.PORTAL_CHEST) {
+                System.out.println("Constraint " + idx + " (" + c.type +
+                        " @ [" + c.portalChest.blockX + "," + c.portalChest.blockZ + "]):");
+            } else {
+                System.out.println("Constraint " + idx + " (" + c.type +
+                        " @ [" + c.chunkX + "," + c.chunkZ + "]):");
+            }
             if (c.type == ConstraintType.RUINED_PORTAL) {
                 ok = checkPortalFull(seed, c, rand);
             } else if (c.type == ConstraintType.SHIPWRECK) {
                 ok = checkShipwreckFull(seed, c, rand);
+            } else if (c.type == ConstraintType.PORTAL_CHEST) {
+                ok = checkPortalChestFull(seed, c, rand);
             } else {
                 ok = checkVillageFull(seed, c, rand);
             }
@@ -1295,6 +1513,37 @@ public class StructureSeedCracker {
         }
     }
 
+    private static void printPortalChestCandidates(int blockX, int blockZ) {
+        if (PORTAL_CHEST_OFFSETS.isEmpty()) {
+            System.out.println("No portal chest offsets loaded. Populate " + PORTAL_CHEST_OFFSETS_FILE + ".");
+            return;
+        }
+
+        System.out.println("--- Portal chest candidates for [" + blockX + "," + blockZ + "] ---");
+        List<String> matches = new ArrayList<>();
+        for (Map.Entry<PortalType, List<PortalChestOffset>> entry : PORTAL_CHEST_OFFSETS.entrySet()) {
+            PortalType type = entry.getKey();
+            for (PortalChestOffset offset : entry.getValue()) {
+                int startBlockX = blockX - offset.offsetX;
+                int startBlockZ = blockZ - offset.offsetZ;
+                int chunkX = floorDiv(startBlockX, 16);
+                int chunkZ = floorDiv(startBlockZ, 16);
+                matches.add(type + " | rot=" + offset.rotation +
+                        " | mirror=" + offset.mirror +
+                        " | origin_chunk=[" + chunkX + "," + chunkZ + "]");
+            }
+        }
+
+        if (matches.isEmpty()) {
+            System.out.println("No candidates found.");
+        } else {
+            matches.sort(Comparator.naturalOrder());
+            for (String match : matches) {
+                System.out.println(match);
+            }
+        }
+    }
+
     // =======================================================================
     // 13. main()
     // =======================================================================
@@ -1306,11 +1555,28 @@ public class StructureSeedCracker {
         }
 
         String arg0 = args[0].trim();
-        boolean isNumeric = arg0.matches("-?\\d+");
-
         // Initialize registry once
         StructureRegistry registry = new StructureRegistry();
         registry.initializeAllDeviceConstants();
+        loadPortalChestOffsets(registry);
+
+        if (arg0.equalsIgnoreCase("portalchest")) {
+            if (args.length != 3) {
+                printUsage();
+                System.exit(1);
+            }
+            try {
+                int blockX = Integer.parseInt(args[1]);
+                int blockZ = Integer.parseInt(args[2]);
+                printPortalChestCandidates(blockX, blockZ);
+            } catch (NumberFormatException e) {
+                printUsage();
+                System.exit(1);
+            }
+            return;
+        }
+
+        boolean isNumeric = arg0.matches("-?\\d+");
 
         // Debug mode: java StructureSeedCracker <seed>
         if (isNumeric && args.length == 1) {
