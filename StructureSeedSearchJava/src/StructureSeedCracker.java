@@ -116,7 +116,7 @@ public class StructureSeedCracker {
     }
 
     enum ConstraintType {
-        SHIPWRECK, RUINED_PORTAL, VILLAGE
+        SHIPWRECK, RUINED_PORTAL, VILLAGE, PORTAL_CHEST
     }
 
     static class RuinedPortalConstraintData {
@@ -124,6 +124,37 @@ public class StructureSeedCracker {
         BlockMirror mirror;
         PortalType type;
         BiomeCategory category;
+    }
+
+    static class PortalChestConstraintData {
+        BiomeCategory category;
+        List<PortalCandidate> candidates = new ArrayList<>();
+    }
+
+    static class PortalCandidate {
+        PortalType type;
+        BlockRotation rotation;
+        BlockMirror mirror;
+
+        PortalCandidate(PortalType type, BlockRotation rotation, BlockMirror mirror) {
+            this.type = type;
+            this.rotation = rotation;
+            this.mirror = mirror;
+        }
+    }
+
+    static class PortalTemplateData {
+        int sizeX;
+        int sizeZ;
+        int chestX;
+        int chestZ;
+
+        PortalTemplateData(int sizeX, int sizeZ, int chestX, int chestZ) {
+            this.sizeX = sizeX;
+            this.sizeZ = sizeZ;
+            this.chestX = chestX;
+            this.chestZ = chestZ;
+        }
     }
 
     static class ShipwreckConstraintData {
@@ -145,6 +176,7 @@ public class StructureSeedCracker {
         int chunkZ;
         ShipwreckConstraintData shipwreck = new ShipwreckConstraintData();
         RuinedPortalConstraintData portal = new RuinedPortalConstraintData();
+        PortalChestConstraintData portalChest = new PortalChestConstraintData();
         VillageConstraintData village = new VillageConstraintData();
     }
 
@@ -300,6 +332,64 @@ public class StructureSeedCracker {
         }
     }
 
+    private static final Map<PortalType, PortalTemplateData> PORTAL_CHEST_DATA = new EnumMap<>(PortalType.class);
+
+    static {
+        PORTAL_CHEST_DATA.put(PortalType.GIANT_PORTAL_1, new PortalTemplateData(11, 16, 4, 3));
+        PORTAL_CHEST_DATA.put(PortalType.GIANT_PORTAL_2, new PortalTemplateData(11, 16, 9, 9));
+        PORTAL_CHEST_DATA.put(PortalType.GIANT_PORTAL_3, new PortalTemplateData(16, 16, 9, 3));
+
+        PORTAL_CHEST_DATA.put(PortalType.PORTAL_1, new PortalTemplateData(6, 6, 2, 0));
+        PORTAL_CHEST_DATA.put(PortalType.PORTAL_2, new PortalTemplateData(9, 9, 8, 6));
+        PORTAL_CHEST_DATA.put(PortalType.PORTAL_3, new PortalTemplateData(12, 9, 11, 7));
+        PORTAL_CHEST_DATA.put(PortalType.PORTAL_4, new PortalTemplateData(12, 9, 11, 3));
+        PORTAL_CHEST_DATA.put(PortalType.PORTAL_5, new PortalTemplateData(10, 7, 4, 2));
+        PORTAL_CHEST_DATA.put(PortalType.PORTAL_6, new PortalTemplateData(5, 7, 1, 4));
+        PORTAL_CHEST_DATA.put(PortalType.PORTAL_7, new PortalTemplateData(9, 9, 0, 2));
+        PORTAL_CHEST_DATA.put(PortalType.PORTAL_8, new PortalTemplateData(14, 9, 4, 2));
+        PORTAL_CHEST_DATA.put(PortalType.PORTAL_9, new PortalTemplateData(10, 9, 4, 0));
+        PORTAL_CHEST_DATA.put(PortalType.PORTAL_10, new PortalTemplateData(12, 10, 2, 7));
+    }
+
+    private static int[] applyPortalTransform(PortalTemplateData data, BlockRotation rotation, BlockMirror mirror) {
+        int x = data.chestX;
+        int z = data.chestZ;
+
+        if (mirror == BlockMirror.FRONT_BACK) {
+            x = data.sizeX - x;
+        }
+
+        switch (rotation) {
+            case NONE:
+                return new int[]{x, z};
+            case CLOCKWISE_90:
+                return new int[]{data.sizeZ - z, x};
+            case CLOCKWISE_180:
+                return new int[]{data.sizeX - x, data.sizeZ - z};
+            case COUNTERCLOCKWISE_90:
+                return new int[]{z, data.sizeX - x};
+            default:
+                return new int[]{x, z};
+        }
+    }
+
+    private static List<PortalCandidate> findPortalChestCandidates(int localX, int localZ) {
+        List<PortalCandidate> candidates = new ArrayList<>();
+        for (Map.Entry<PortalType, PortalTemplateData> entry : PORTAL_CHEST_DATA.entrySet()) {
+            PortalType type = entry.getKey();
+            PortalTemplateData data = entry.getValue();
+            for (BlockRotation rotation : BlockRotation.values()) {
+                for (BlockMirror mirror : BlockMirror.values()) {
+                    int[] transformed = applyPortalTransform(data, rotation, mirror);
+                    if (transformed[0] == localX && transformed[1] == localZ) {
+                        candidates.add(new PortalCandidate(type, rotation, mirror));
+                    }
+                }
+            }
+        }
+        return candidates;
+    }
+
     // =======================================================================
     // 6. Full validation functions (CPU versions)
     // =======================================================================
@@ -431,6 +521,105 @@ public class StructureSeedCracker {
         if (mirror != c.portal.mirror) return false;
 
         return true;
+    }
+
+    private static boolean checkPortalChest(long structureSeed, Constraint c, StandaloneChunkRand rand) {
+        int regX = floorDiv(c.chunkX, PORTAL_SPACING);
+        int regZ = floorDiv(c.chunkZ, PORTAL_SPACING);
+        rand.setRegionSeed(structureSeed, regX, regZ, RUINED_PORTAL_SALT);
+
+        int offset = PORTAL_SPACING - PORTAL_SEPARATION;
+        int offX = rand.nextInt(offset);
+        int genX = regX * PORTAL_SPACING + offX;
+        int offZ = rand.nextInt(offset);
+        int genZ = regZ * PORTAL_SPACING + offZ;
+
+        if (DEBUG_VERBOSE) {
+            System.out.println("  [Portal] reg=(" + regX + "," + regZ + "), offset=(" + offX + "," + offZ + "), gen=(" + genX + "," + genZ + ")");
+        }
+
+        if (genX != c.chunkX || genZ != c.chunkZ) return false;
+
+        rand.setCarverSeed(structureSeed, c.chunkX, c.chunkZ);
+
+        if (DEBUG_VERBOSE) {
+            System.out.println("  [Portal] category=" + c.portalChest.category);
+        }
+
+        switch (c.portalChest.category) {
+            case DESERT:
+                if (DEBUG_VERBOSE) {
+                    System.out.println("  [Portal] DESERT branch: no extra float");
+                }
+                break;
+            case JUNGLE: {
+                if (DEBUG_VERBOSE) {
+                    System.out.println("  [Portal] JUNGLE branch: consuming 1 float");
+                }
+                float f = rand.nextFloat();
+                if (DEBUG_VERBOSE) {
+                    System.out.println("    consumed=" + f);
+                }
+                break;
+            }
+            case MOUNTAINS: {
+                float f1 = rand.nextFloat();
+                if (DEBUG_VERBOSE) {
+                    System.out.println("  [Portal] MOUNTAINS branch: f1=" + f1);
+                }
+                if (f1 >= 0.5f) {
+                    float f2 = rand.nextFloat();
+                    if (DEBUG_VERBOSE) {
+                        System.out.println("  [Portal] MOUNTAINS branch: f2=" + f2);
+                    }
+                }
+                break;
+            }
+        }
+
+        float giantRoll = rand.nextFloat();
+        boolean giant = (giantRoll < 0.05f);
+        PortalType t;
+        if (giant) {
+            int gi = rand.nextInt(3);
+            t = PortalType.values()[PortalType.GIANT_PORTAL_1.ordinal() + gi];
+        } else {
+            int ni = rand.nextInt(10);
+            t = PortalType.values()[PortalType.PORTAL_1.ordinal() + ni];
+        }
+
+        BlockRotation rot = BlockRotation.values()[rand.nextInt(4)];
+        float mirrorRoll = rand.nextFloat();
+        BlockMirror mirror = (mirrorRoll < 0.5f) ? BlockMirror.NONE : BlockMirror.FRONT_BACK;
+
+        if (DEBUG_VERBOSE) {
+            System.out.println("  [Portal] giantRoll=" + giantRoll + " → " + (giant ? "GIANT" : "NORMAL"));
+            System.out.println("  [Portal] type=" + t);
+            System.out.println("  [Portal] rotation=" + rot);
+            System.out.println("  [Portal] mirror=" + mirror);
+            System.out.println("  [Portal] candidateCount=" + c.portalChest.candidates.size());
+        }
+
+        for (PortalCandidate candidate : c.portalChest.candidates) {
+            if (candidate.type == t && candidate.rotation == rot && candidate.mirror == mirror) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static boolean checkConstraint(long structureSeed, Constraint c, StandaloneChunkRand rand) {
+        if (c.type == ConstraintType.RUINED_PORTAL) {
+            return checkPortalFull(structureSeed, c, rand);
+        }
+        if (c.type == ConstraintType.PORTAL_CHEST) {
+            return checkPortalChest(structureSeed, c, rand);
+        }
+        if (c.type == ConstraintType.SHIPWRECK) {
+            return checkShipwreckFull(structureSeed, c, rand);
+        }
+        return checkVillageFull(structureSeed, c, rand);
     }
 
     // =======================================================================
@@ -727,6 +916,7 @@ public class StructureSeedCracker {
     static class StructureRegistry {
         private final List<IStructure> structures = new ArrayList<>();
         private final Map<String, BlockRotation> nameToRot = new HashMap<>();
+        private final String portalChestPrefix = "PORTALCHEST";
 
         StructureRegistry() {
             structures.add(new ShipwreckStructure());
@@ -746,6 +936,38 @@ public class StructureSeedCracker {
         }
 
         boolean parseLine(String line, Constraint out) {
+            String trimmed = line.trim();
+            if (trimmed.toUpperCase().startsWith(portalChestPrefix)) {
+                String remainder = trimmed.substring(portalChestPrefix.length()).trim();
+                if (remainder.startsWith(":") || remainder.startsWith(",")) {
+                    remainder = remainder.substring(1).trim();
+                }
+                if (remainder.isEmpty()) return false;
+                String[] tokens = remainder.split("[,\\s]+");
+                if (tokens.length != 3) return false;
+                try {
+                    int worldX = Integer.parseInt(tokens[0]);
+                    int worldZ = Integer.parseInt(tokens[1]);
+                    int cat = Integer.parseInt(tokens[2]);
+                    BiomeCategory category = BiomeCategory.fromInt(cat);
+                    int chunkX = floorDiv(worldX, 16);
+                    int chunkZ = floorDiv(worldZ, 16);
+                    int localX = worldX - chunkX * 16;
+                    int localZ = worldZ - chunkZ * 16;
+                    List<PortalCandidate> candidates = findPortalChestCandidates(localX, localZ);
+                    if (candidates.isEmpty()) return false;
+
+                    out.type = ConstraintType.PORTAL_CHEST;
+                    out.chunkX = chunkX;
+                    out.chunkZ = chunkZ;
+                    out.portalChest.category = category;
+                    out.portalChest.candidates = candidates;
+                    return true;
+                } catch (NumberFormatException e) {
+                    return false;
+                }
+            }
+
             String[] tokens = line.split(",");
             List<String> parts = new ArrayList<>();
             for (String t : tokens) parts.add(t.trim());
@@ -875,20 +1097,14 @@ public class StructureSeedCracker {
 
                     boolean okAll = true;
                     for (Constraint c : constraints) {
-                        boolean ok;
-                        if (c.type == ConstraintType.RUINED_PORTAL) {
-                            ok = checkPortalFull(candidateSeed, c, rand);
-                        } else if (c.type == ConstraintType.SHIPWRECK) {
-                            ok = checkShipwreckFull(candidateSeed, c, rand);
-                        } else {
-                            ok = checkVillageFull(candidateSeed, c, rand);
-                        }
-                        if (!ok) {
-                            okAll = false;
-                            break;
-                        }
+                    boolean ok;
+                    ok = checkConstraint(candidateSeed, c, rand);
+                    if (!ok) {
+                        okAll = false;
+                        break;
                     }
-                    if (okAll) {
+                }
+                if (okAll) {
                         results.add(candidateSeed & MASK_48);
                     }
 
@@ -962,14 +1178,7 @@ public class StructureSeedCracker {
 
         private boolean validateCandidate(long seed, List<Constraint> validators, StandaloneChunkRand rand) {
             for (Constraint c : validators) {
-                boolean ok;
-                if (c.type == ConstraintType.RUINED_PORTAL) {
-                    ok = checkPortalFull(seed, c, rand);
-                } else if (c.type == ConstraintType.SHIPWRECK) {
-                    ok = checkShipwreckFull(seed, c, rand);
-                } else {
-                    ok = checkVillageFull(seed, c, rand);
-                }
+                boolean ok = checkConstraint(seed, c, rand);
                 if (!ok) return false;
             }
             return true;
@@ -980,7 +1189,8 @@ public class StructureSeedCracker {
 
             int anchorIdx = -1;
             for (int i = 0; i < allConstraints.size(); i++) {
-                if (allConstraints.get(i).type == ConstraintType.RUINED_PORTAL) {
+                if (allConstraints.get(i).type == ConstraintType.RUINED_PORTAL ||
+                        allConstraints.get(i).type == ConstraintType.PORTAL_CHEST) {
                     anchorIdx = i;
                     break;
                 }
@@ -1005,13 +1215,13 @@ public class StructureSeedCracker {
                 if (i != anchorIdx) validators.add(allConstraints.get(i));
             }
 
-            String anchorTypeStr = (anchor.type == ConstraintType.RUINED_PORTAL) ? "Portal" : "Shipwreck";
+            String anchorTypeStr = (anchor.type == ConstraintType.SHIPWRECK) ? "Shipwreck" : "Portal";
             System.out.println("Using " + anchorTypeStr + " at [" + anchor.chunkX + "," + anchor.chunkZ + "] as anchor.");
 
             StandaloneChunkRand rand = new StandaloneChunkRand();
             long startNs = System.nanoTime();
 
-            if (anchor.type == ConstraintType.RUINED_PORTAL) {
+            if (anchor.type == ConstraintType.RUINED_PORTAL || anchor.type == ConstraintType.PORTAL_CHEST) {
                 int regX = floorDiv(anchor.chunkX, PORTAL_SPACING);
                 int regZ = floorDiv(anchor.chunkZ, PORTAL_SPACING);
                 int genRegionSize = PORTAL_SPACING - PORTAL_SEPARATION;
@@ -1053,7 +1263,7 @@ public class StructureSeedCracker {
                                 long scrambled = state0Candidate ^ XOR_MASK;
                                 long seed = (scrambled - termX - termZ - RUINED_PORTAL_SALT) & MASK_48;
 
-                                if (checkPortalFull(seed, anchor, rand) && validateCandidate(seed, validators, rand)) {
+                                if (checkConstraint(seed, anchor, rand) && validateCandidate(seed, validators, rand)) {
                                     results.add(seed);
                                 }
                             }
@@ -1098,7 +1308,7 @@ public class StructureSeedCracker {
                                     long scrambled = uLcgInitial ^ XOR_MASK;
                                     long seed = (scrambled - termX - termZ - SHIPWRECK_SALT) & MASK_48;
 
-                                    if (checkShipwreckFull(seed, anchor, rand) && validateCandidate(seed, validators, rand)) {
+                                    if (checkConstraint(seed, anchor, rand) && validateCandidate(seed, validators, rand)) {
                                         results.add(seed);
                                     }
                                 }
@@ -1132,14 +1342,7 @@ public class StructureSeedCracker {
 
                 boolean validAll = true;
                 for (Constraint c : allConstraints) {
-                    boolean ok;
-                    if (c.type == ConstraintType.RUINED_PORTAL) {
-                        ok = checkPortalFull(candidateSeed, c, rand);
-                    } else if (c.type == ConstraintType.SHIPWRECK) {
-                        ok = checkShipwreckFull(candidateSeed, c, rand);
-                    } else {
-                        ok = checkVillageFull(candidateSeed, c, rand);
-                    }
+                    boolean ok = checkConstraint(candidateSeed, c, rand);
                     if (!ok) {
                         validAll = false;
                         break;
@@ -1162,7 +1365,9 @@ public class StructureSeedCracker {
 
             boolean hasReversibleAnchor = false;
             for (Constraint c : allConstraints) {
-                if (c.type == ConstraintType.RUINED_PORTAL || c.type == ConstraintType.SHIPWRECK) {
+                if (c.type == ConstraintType.RUINED_PORTAL ||
+                        c.type == ConstraintType.PORTAL_CHEST ||
+                        c.type == ConstraintType.SHIPWRECK) {
                     hasReversibleAnchor = true;
                     break;
                 }
@@ -1202,6 +1407,7 @@ public class StructureSeedCracker {
         System.err.println("Constraints file format (one per line, '#' for comments):");
         System.err.println("  Shipwreck: ChunkX, ChunkZ, ROTATION, type_name, Ocean|Beached");
         System.err.println("  Portal   : ChunkX, ChunkZ, ROTATION, portal_type, yes|no, biome_category(1-3)");
+        System.err.println("  PortalChest: PORTALCHEST: WorldX WorldZ biome_category(1-3)");
         System.err.println("  Village  : ChunkX, ChunkZ, ROTATION, piece_name, biome_id, [yes|no]");
         System.err.println("             biome_id: 1=Plains, 2=Snowy, 3=Taiga, 4=Savanna, 5=Desert");
         System.err.println("Pillarseed Mode:");
@@ -1273,16 +1479,9 @@ public class StructureSeedCracker {
 
         for (Constraint c : constraints) {
             idx++;
-            boolean ok;
             System.out.println("Constraint " + idx + " (" + c.type +
                     " @ [" + c.chunkX + "," + c.chunkZ + "]):");
-            if (c.type == ConstraintType.RUINED_PORTAL) {
-                ok = checkPortalFull(seed, c, rand);
-            } else if (c.type == ConstraintType.SHIPWRECK) {
-                ok = checkShipwreckFull(seed, c, rand);
-            } else {
-                ok = checkVillageFull(seed, c, rand);
-            }
+            boolean ok = checkConstraint(seed, c, rand);
 
             System.out.println("  -> " + (ok ? "PASS" : "FAIL"));
             if (!ok) allOk = false;
